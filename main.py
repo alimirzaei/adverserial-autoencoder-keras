@@ -2,10 +2,11 @@
 from keras.models import Sequential, Model
 from keras.layers import Dense, Input, Flatten, Reshape
 from keras.datasets import mnist
-from keras.optimizers import sgd
+from keras.optimizers import Adam
 import numpy as np
 import matplotlib.pyplot as plt
 
+optimizer = Adam(0.0002, 0.5)
 # Load MNIST dataset
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
 x_train = x_train.astype(np.float32) / 255.
@@ -51,11 +52,11 @@ discriminator.summary()
 valid = discriminator(encoded_repr)
 adversarial_autoencoder = Model(img, [gen_img, valid])
 
-adversarial_autoencoder.compile(optimizer='adadelta', loss='binary_crossentropy')
-discriminator.compile(optimizer='adadelta', loss='binary_crossentropy')
+adversarial_autoencoder.compile(optimizer=optimizer, loss=['mse','binary_crossentropy'], loss_weights=[0.999, 0.001])
+discriminator.compile(optimizer=optimizer, loss='binary_crossentropy',metrics=['accuracy'])
 
-batch_size = 256
-epochs = 500
+batch_size = 32
+epochs = 20000
 half_batch = int(batch_size / 2)
 
 for epoch in range(epochs):
@@ -95,7 +96,7 @@ for epoch in range(epochs):
     g_loss = adversarial_autoencoder.train_on_batch(imgs, [imgs, valid_y])
 
     # Plot the progress
-    print ("%d [D loss: %f] [G loss: %f]" % (epoch, d_loss, g_loss[0]))
+    print ("%d [D loss: %f, acc: %.2f%%] [G loss: %f, mse: %f]" % (epoch, d_loss[0], 100*d_loss[1], g_loss[0], g_loss[1]))
 
 #    # If at save interval => save generated image samples
 #    if epoch % save_interval == 0:
@@ -106,7 +107,7 @@ for epoch in range(epochs):
 #
 #autoencoder.fit(x_train, x_train, epochs=10, batch_size=256)
 
-decoded_imgs = autoencoder.predict(x_test)
+_ , decoded_imgs = autoencoder.predict(x_test)
 
 
 n = 10  # how many digits we will display
