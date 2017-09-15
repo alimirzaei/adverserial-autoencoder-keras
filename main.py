@@ -36,7 +36,7 @@ encoder = Sequential()
 encoder.add(Flatten(input_shape=img_shape))
 encoder.add(Dense(1000, activation='relu'))
 encoder.add(Dense(1000, activation='relu'))
-encoder.add(Dense(encoded_dim, activation='relu'))
+encoder.add(Dense(encoded_dim))
 
 encoder.summary()
 
@@ -70,12 +70,14 @@ encoder_discriminator = Model(img, valid)
 
 discriminator.compile(optimizer=optimizer, loss='binary_crossentropy',metrics=['accuracy'])
 autoencoder.compile(optimizer=optimizer, loss ='mse')
+for layer in discriminator.layers:
+    layer.trainable=False
 encoder_discriminator.compile(optimizer=optimizer, loss='binary_crossentropy',metrics=['accuracy'])
 
 batch_size = 32
 epochs = 30000
 half_batch = int(batch_size / 2)
-save_interval =50
+save_interval = 500
 for epoch in range(epochs):
     # ---------------------
     #  Train Discriminator
