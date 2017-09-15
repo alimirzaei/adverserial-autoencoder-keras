@@ -6,6 +6,21 @@ from keras.optimizers import Adam
 import numpy as np
 import matplotlib.pyplot as plt
 
+def imagegrid(dec, epochnumber):
+    fig = plt.figure(figsize=[20, 20])
+    for i in range(-5, 5):
+        for j in range(-5,5):
+            topred = np.array((i*0.5,j*0.5))
+            topred = topred.reshape((1, 2))
+            img = dec.predict(topred)
+            img = img.reshape((28, 28))
+            ax = fig.add_subplot(10, 10, (i+5)*10+j+5+1)
+            ax.set_axis_off()
+            ax.imshow(img, cmap="gray")
+    fig.savefig(str(epochnumber)+".png")
+    plt.show()
+    plt.close(fig)
+
 optimizer = Adam(0.0002, 0.5)
 # Load MNIST dataset
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
@@ -40,7 +55,7 @@ decoder.summary()
 
 gen_img = decoder(encoded_repr)
 
-autoencoder = Model(img, [encoded_repr, gen_img])
+autoencoder = Model(img, gen_img)
 
 
 # Discriminator
@@ -50,15 +65,17 @@ discriminator.add(Dense(1000, activation='relu'))
 discriminator.add(Dense(1, activation='sigmoid'))
 discriminator.summary()
 valid = discriminator(encoded_repr)
-adversarial_autoencoder = Model(img, [gen_img, valid])
+encoder_discriminator = Model(img, valid)
 
-adversarial_autoencoder.compile(optimizer=optimizer, loss=['mse','binary_crossentropy'], loss_weights=[0.999, 0.001])
+
 discriminator.compile(optimizer=optimizer, loss='binary_crossentropy',metrics=['accuracy'])
+autoencoder.compile(optimizer=optimizer, loss ='mse')
+encoder_discriminator.compile(optimizer=optimizer, loss='binary_crossentropy',metrics=['accuracy'])
 
 batch_size = 32
-epochs = 20000
+epochs = 30000
 half_batch = int(batch_size / 2)
-
+save_interval =50
 for epoch in range(epochs):
     # ---------------------
     #  Train Discriminator
@@ -69,7 +86,8 @@ for epoch in range(epochs):
     imgs = x_train[idx]
 
     # Generate a half batch of new images
-    latent_fake, gen_imgs = autoencoder.predict(imgs)
+    latent_fake = encoder.predict(imgs)
+    gen_imgs = decoder.predict(latent_fake)
     latent_real = np.random.normal(size=(half_batch, encoded_dim))
 
     valid = np.ones((half_batch, 1))
@@ -93,11 +111,13 @@ for epoch in range(epochs):
     valid_y = np.ones((batch_size, 1))
 
     # Train the generator
-    g_loss = adversarial_autoencoder.train_on_batch(imgs, [imgs, valid_y])
-
+    g_loss_reconstruction = autoencoder.train_on_batch(imgs, imgs)
+    g_logg_similarity = encoder_discriminator.train_on_batch(imgs, valid_y)
     # Plot the progress
-    print ("%d [D loss: %f, acc: %.2f%%] [G loss: %f, mse: %f]" % (epoch, d_loss[0], 100*d_loss[1], g_loss[0], g_loss[1]))
-
+    print ("%d [D loss: %f, acc: %.2f%%] [G acc: %f, mse: %f]" % (epoch, d_loss[0], 100*d_loss[1],
+           g_logg_similarity[1], g_loss_reconstruction))
+    if(epoch % save_interval == 0):
+        imagegrid(decoder,epoch)
 #    # If at save interval => save generated image samples
 #    if epoch % save_interval == 0:
 #        # Select a random half batch of images
@@ -107,23 +127,4 @@ for epoch in range(epochs):
 #
 #autoencoder.fit(x_train, x_train, epochs=10, batch_size=256)
 
-_ , decoded_imgs = autoencoder.predict(x_test)
 
-
-n = 10  # how many digits we will display
-plt.figure(figsize=(20, 4))
-for i in range(n):
-    # display original
-    ax = plt.subplot(2, n, i + 1)
-    plt.imshow(x_test[i].reshape(28, 28))
-    plt.gray()
-    ax.get_xaxis().set_visible(False)
-    ax.get_yaxis().set_visible(False)
-
-    # display reconstruction
-    ax = plt.subplot(2, n, i + 1 + n)
-    plt.imshow(decoded_imgs[i].reshape(28, 28))
-    plt.gray()
-    ax.get_xaxis().set_visible(False)
-    ax.get_yaxis().set_visible(False)
-plt.show()
