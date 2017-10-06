@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 
 class AAN():
-    def __init__(self, img_shape=(28, 28), encoded_dim=2):
+    def __init__(self, img_shape=(28, 28), encoded_dim=15):
         self.encoded_dim = encoded_dim
         self.optimizer_reconst = Adam(0.001)
         self.optimizer_discriminator = Adam(0.0001)
@@ -90,7 +90,7 @@ class AAN():
         for i in range(-5, 5):
             for j in range(-5,5):
                 topred = np.array((i*0.5,j*0.5))
-                topred = topred.reshape((1, 2))
+                topred = topred.reshape((1, self.encoded_dim))
                 img = self.decoder.predict(topred)
                 img = img.reshape((28, 28))
                 ax = fig.add_subplot(10, 10, (i+5)*10+j+5+1)
