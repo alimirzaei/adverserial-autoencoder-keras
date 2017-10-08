@@ -105,7 +105,7 @@ class SAAE():
                 ax = fig.add_subplot(10, 10, k)
                 ax.set_axis_off()
                 ax.imshow(img, cmap="gray")
-        fig.savefig(str(epochnumber)+".png")
+        fig.savefig("images/SAAE/" + str(epochnumber) + ".png")
         plt.show()
         plt.close(fig)
 

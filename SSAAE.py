@@ -8,10 +8,12 @@ from keras.layers import Dense, Input, Flatten, Reshape, concatenate
 from keras.datasets import mnist
 from keras.optimizers import Adam, SGD
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+
 import matplotlib.pyplot as plt
-
-
-class AAN():
+plt.ioff()
+class SSAAE():
     def __init__(self, img_shape=(28, 28), encoded_dim=2):
         self.encoded_dim = encoded_dim
         self.optimizer_reconst = Adam(0.0001)
@@ -101,12 +103,20 @@ class AAN():
             ax = fig.add_subplot(1, 10, index+1)
             ax.set_axis_off()
             ax.imshow(img, cmap="gray")
-        fig.savefig(str(epochnumber)+".png")
+        fig.savefig("images/SSAAE/" + str(epochnumber)+".png")
         plt.show()
         plt.close(fig)
+        
+    def saveLatentMap(self,epochnumber, x_test, y_test):
+        fig = plt.figure(figsize=[20, 20])
+        lat = self.encoder.predict(x_test)
+        ax = fig.add_subplot(1, 1, 1)
+        ax.scatter(lat[:,0], lat[:,1], c=y_test)
+        fig.savefig("images/SSAAE/map_"+ str(epochnumber)+".png")
 
-    def train(self, x_train, batch_size=32, epochs=5000, save_image_interval=50):
-        save_interval = 50
+
+
+    def train(self, x_train, y_train, x_test, y_test, batch_size=32, epochs=8000, save_interval=100):
         for epoch in range(epochs):
             #---------------Train Discriminator -------------
             # Select a random half batch of images
@@ -142,6 +152,7 @@ class AAN():
                    g_logg_similarity[1], g_loss_reconstruction))
             if(epoch % save_interval == 0):
                 self.imagegrid(epoch)
+                self.saveLatentMap(epoch, x_test, y_test)
 
     def generateRandomVectors(self, y_train):
         vectors = []
@@ -152,8 +163,16 @@ class AAN():
                 l = np.random.randint(0, 10)
             else:
                 l = y
-            mean = [10*np.sin((l*2*np.pi)/10), 10*np.cos((l*2*np.pi)/10)]
-            vec = np.random.multivariate_normal(mean=mean, cov=np.eye(2),
+            mean = [10*np.cos((l*2*np.pi)/10), 10*np.sin((l*2*np.pi)/10)]
+            v1 = [np.cos((l*2*np.pi)/10), np.sin((l*2*np.pi)/10)]
+            v2 = [-np.sin((l*2*np.pi)/10), np.cos((l*2*np.pi)/10)]
+            a1 = 8
+            a2 = .4
+            M =np.vstack((v1,v2)).T
+            S = np.array([[a1, 0], [0, a2]])
+            cov = np.dot(np.dot(M, S), np.linalg.inv(M))
+            #cov = cov*cov.T
+            vec = np.random.multivariate_normal(mean=mean, cov=cov,
                                                 size=1)
             vectors.append(vec)
         return (np.array(vectors).reshape(-1, 2), labels)
@@ -161,14 +180,11 @@ class AAN():
 if __name__ == '__main__':
     # Load MNIST dataset
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
-    idx_unlabel = np.random.randint(0, x_train.shape[0], 40000)
+    idx_unlabel = np.random.randint(0, x_train.shape[0], 20000)
     y_train[idx_unlabel] = 10
     x_train = x_train.astype(np.float32) / 255.
     x_test = x_test.astype(np.float32) / 255.
-    ann = AAN()
-    vecs,b = ann.generateRandomVectors(100*range(10))
+    ann = SSAAE()
+    vecs,b = ann.generateRandomVectors(1000*range(10))
     plt.scatter(vecs[:,0], vecs[:,1])
-
-    ann.train(x_train)
-    lat = ann.encoder.predict(x_train)
-    plt.scatter(lat[:,0], lat[:,1], c=y_train)
+    ann.train(x_train, y_train, x_test, y_test)
