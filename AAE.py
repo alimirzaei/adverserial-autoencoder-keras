@@ -87,20 +87,21 @@ class AAN():
                                            metrics=['accuracy'])
     def imagegrid(self, epochnumber):
         fig = plt.figure(figsize=[20, 20])
-        for i in range(-5, 5):
-            for j in range(-5,5):
-                topred = np.array((i*0.5,j*0.5))
-                topred = topred.reshape((1, self.encoded_dim))
-                img = self.decoder.predict(topred)
-                img = img.reshape((28, 28))
-                ax = fig.add_subplot(10, 10, (i+5)*10+j+5+1)
-                ax.set_axis_off()
-                ax.imshow(img, cmap="gray")
-        fig.savefig(str(epochnumber)+".png")
+        images = self.generateImages(100)
+        for index,img in enumerate(images):
+            img = img.reshape((28, 28))
+            ax = fig.add_subplot(10, 10, index+1)
+            ax.set_axis_off()
+            ax.imshow(img, cmap="gray")
+        fig.savefig("images/AAE/"+str(epochnumber)+".png")
         plt.show()
         plt.close(fig)
+    def generateImages(self, n=100):
+        latents = np.random.normal(size=(n, self.encoded_dim))
+        imgs = self.decoder.predict(latents)
+        return imgs
 
-    def train(self, x_train, batch_size=32, epochs=5000, save_image_interval=50):
+    def train(self, x_train, batch_size=32, epochs=5000, save_image_interval=100):
         half_batch = int(batch_size / 2)
         save_interval = 50
         for epoch in range(epochs):
@@ -141,5 +142,5 @@ if __name__ == '__main__':
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
     x_train = x_train.astype(np.float32) / 255.
     x_test = x_test.astype(np.float32) / 255.
-    ann = AAN()
+    ann = AAN(encoded_dim=8)
     ann.train(x_train)
