@@ -9,6 +9,7 @@ from keras.datasets import mnist
 from keras.optimizers import Adam
 import numpy as np
 import matplotlib.pyplot as plt
+import helpers
 
 
 class AAN():
@@ -101,9 +102,8 @@ class AAN():
         imgs = self.decoder.predict(latents)
         return imgs
 
-    def train(self, x_train, batch_size=32, epochs=5000, save_image_interval=100):
+    def train(self, x_train, batch_size=32, epochs=5000, save_interval=500):
         half_batch = int(batch_size / 2)
-        save_interval = 50
         for epoch in range(epochs):
             #---------------Train Discriminator -------------
             # Select a random half batch of images
@@ -144,3 +144,7 @@ if __name__ == '__main__':
     x_test = x_test.astype(np.float32) / 255.
     ann = AAN(encoded_dim=8)
     ann.train(x_train)
+    generated = ann.generateImages(10000)
+    L= helpers.approximateLogLiklihood(generated, x_test)
+    print "Log Likelihood"
+    print L
