@@ -13,6 +13,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.neighbors.kde import KernelDensity
 from mpl_toolkits.mplot3d import Axes3D
+import helpers
+
 class GAE():
     def __init__(self, img_shape=(28, 28), encoded_dim=2):
         self.encoded_dim = encoded_dim
@@ -82,7 +84,12 @@ class GAE():
         codes = self.encoder.predict(x_train)
         self.kde = KernelDensity(kernel='gaussian', bandwidth=0.2).fit(codes)
 
-    def generate(self, n = 10):
+    def generate(self, n = 10000):
+        codes = self.kde.sample(n)
+        images = self.decoder.predict(codes)
+        return images
+
+    def generateAndPlot(self, n = 10):
         fig = plt.figure(figsize=[20, 20])
         codes = self.kde.sample(n*n)
         images = self.decoder.predict(codes)
@@ -94,16 +101,19 @@ class GAE():
         fig.savefig("generated.png")
         plt.show()
 
+    def meanLogLikelihood(self, x_test):
+        KernelDensity(kernel='gaussian', bandwidth=0.2).fit(codes)
 if __name__ == '__main__':
     # Load MNIST dataset
-    (x_train, y_train), (x_test, y_test) = cifar10.load_data()
+    (x_train, y_train), (x_test, y_test) = mnist.load_data()
     x_train = x_train.astype(np.float32) / 255.
     x_test = x_test.astype(np.float32) / 255.
-    ann = GAE(img_shape=(32,32,3), encoded_dim=10)
+    ann = GAE(img_shape=(28,28), encoded_dim=10)
     ann.train(x_train, epochs=1)
-    ann.generate(10)
+    generated = ann.generate(10000)
+    L = helpers.approximateLogLiklihood(generated, x_test)
     #codes = ann.kde.sample(1000)
     #ax = Axes3D(plt.gcf())
-    codes = ann.encoder.predict(x_train)
-    plt.scatter(codes[:,0], codes[:,1], c=y_train)
-    plt.show()
+    #codes = ann.encoder.predict(x_train)
+    #plt.scatter(codes[:,0], codes[:,1], c=y_train)
+    #plt.show()
