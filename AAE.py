@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 
 class AAN():
-    def __init__(self, img_shape=(28, 28), encoded_dim=15):
+    def __init__(self, img_shape=(28, 28), encoded_dim=2):
         self.encoded_dim = encoded_dim
         self.optimizer_reconst = Adam(0.001)
         self.optimizer_discriminator = Adam(0.0001)

@@ -9,6 +9,8 @@ from keras.datasets import mnist
 from keras.optimizers import Adam, SGD
 import numpy as np
 import matplotlib
+import helpers
+
 matplotlib.use('Agg')
 
 import matplotlib.pyplot as plt
@@ -116,7 +118,7 @@ class SSAAE():
 
 
 
-    def train(self, x_train, y_train, x_test, y_test, batch_size=32, epochs=8000, save_interval=100):
+    def train(self, x_train, y_train, x_test, y_test, batch_size=32, epochs=10000, save_interval=500):
         for epoch in range(epochs):
             #---------------Train Discriminator -------------
             # Select a random half batch of images
@@ -185,6 +187,12 @@ if __name__ == '__main__':
     x_train = x_train.astype(np.float32) / 255.
     x_test = x_test.astype(np.float32) / 255.
     ann = SSAAE()
+    #vecs,b = ann.generateRandomVectors(1000*range(10))
+    #plt.scatter(vecs[:,0], vecs[:,1])
+    ann.train(x_train, y_train, x_test, y_test, epochs=1)
     vecs,b = ann.generateRandomVectors(1000*range(10))
-    plt.scatter(vecs[:,0], vecs[:,1])
-    ann.train(x_train, y_train, x_test, y_test)
+    generated=ann.decoder.predict(vecs)
+    print generated.shape
+    L= helpers.approximateLogLiklihood(generated, x_test)
+    print "Log Likelihood"
+    print L

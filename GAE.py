@@ -7,7 +7,7 @@
 
 from keras.models import Sequential, Model
 from keras.layers import Dense, Input, Flatten, Reshape
-from keras.datasets import mnist, cifar10
+from keras.datasets import mnist, cfar10
 from keras.optimizers import Adam
 import numpy as np
 import matplotlib.pyplot as plt
@@ -112,8 +112,9 @@ if __name__ == '__main__':
     ann.train(x_train, epochs=1)
     generated = ann.generate(10000)
     L = helpers.approximateLogLiklihood(generated, x_test)
+    ann.generateAndPlot()
     #codes = ann.kde.sample(1000)
     #ax = Axes3D(plt.gcf())
-    #codes = ann.encoder.predict(x_train)
-    #plt.scatter(codes[:,0], codes[:,1], c=y_train)
-    #plt.show()
+    codes = ann.encoder.predict(x_train)
+    plt.scatter(codes[:,0], codes[:,1], c=y_train)
+    plt.show()
