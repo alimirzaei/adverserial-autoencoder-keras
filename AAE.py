@@ -6,16 +6,22 @@
 from keras.models import Sequential, Model
 from keras.layers import Dense, Input, Flatten, Reshape
 from keras.datasets import mnist
-from keras.optimizers import Adam
+from keras.optimizers import Adam,SGD
+from keras.initializers import RandomNormal
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib
 import helpers
 
+matplotlib.use('Agg')
 
+import matplotlib.pyplot as plt
+plt.ioff()
+
+initializer = RandomNormal(mean=0.0, stddev=0.01, seed=None)
 class AAN():
     def __init__(self, img_shape=(28, 28), encoded_dim=2):
         self.encoded_dim = encoded_dim
-        self.optimizer_reconst = Adam(0.001)
+        self.optimizer_reconst = Adam(0.0001)
         self.optimizer_discriminator = Adam(0.0001)
         self._initAndCompileFullModel(img_shape, encoded_dim)
 
@@ -29,9 +35,12 @@ class AAN():
         """
         encoder = Sequential()
         encoder.add(Flatten(input_shape=img_shape))
-        encoder.add(Dense(1000, activation='relu'))
-        encoder.add(Dense(1000, activation='relu'))
-        encoder.add(Dense(encoded_dim))
+        encoder.add(Dense(1000, activation='relu', kernel_initializer=initializer,
+                bias_initializer=initializer))
+        encoder.add(Dense(1000, activation='relu', kernel_initializer=initializer,
+                bias_initializer=initializer))
+        encoder.add(Dense(encoded_dim, kernel_initializer=initializer,
+                bias_initializer=initializer))
         encoder.summary()
         return encoder
 
@@ -44,9 +53,12 @@ class AAN():
             A sequential keras model
         """
         decoder = Sequential()
-        decoder.add(Dense(1000, activation='relu', input_dim=encoded_dim))
-        decoder.add(Dense(1000, activation='relu'))
-        decoder.add(Dense(np.prod(img_shape), activation='sigmoid'))
+        decoder.add(Dense(1000, activation='relu', input_dim=encoded_dim, kernel_initializer=initializer,
+                bias_initializer=initializer))
+        decoder.add(Dense(1000, activation='relu', kernel_initializer=initializer,
+                bias_initializer=initializer))
+        decoder.add(Dense(np.prod(img_shape), activation='sigmoid', kernel_initializer=initializer,
+                bias_initializer=initializer))
         decoder.add(Reshape(img_shape))
         decoder.summary()
         return decoder
@@ -60,9 +72,12 @@ class AAN():
         """
         discriminator = Sequential()
         discriminator.add(Dense(1000, activation='relu',
-                                input_dim=encoded_dim))
-        discriminator.add(Dense(1000, activation='relu'))
-        discriminator.add(Dense(1, activation='sigmoid'))
+                                input_dim=encoded_dim, kernel_initializer=initializer,
+                bias_initializer=initializer))
+        discriminator.add(Dense(1000, activation='relu', kernel_initializer=initializer,
+                bias_initializer=initializer))
+        discriminator.add(Dense(1, activation='sigmoid', kernel_initializer=initializer,
+                bias_initializer=initializer))
         discriminator.summary()
         return discriminator
 
@@ -98,11 +113,11 @@ class AAN():
         plt.show()
         plt.close(fig)
     def generateImages(self, n=100):
-        latents = np.random.normal(size=(n, self.encoded_dim))
+        latents = 5*np.random.normal(size=(n, self.encoded_dim))
         imgs = self.decoder.predict(latents)
         return imgs
 
-    def train(self, x_train, batch_size=32, epochs=5000, save_interval=500):
+    def train(self, x_train, batch_size=100, epochs=5000, save_interval=500):
         half_batch = int(batch_size / 2)
         for epoch in range(epochs):
             #---------------Train Discriminator -------------
@@ -112,7 +127,7 @@ class AAN():
             # Generate a half batch of new images
             latent_fake = self.encoder.predict(imgs)
             #gen_imgs = self.decoder.predict(latent_fake)
-            latent_real = np.random.normal(size=(half_batch, self.encoded_dim))
+            latent_real = 5*np.random.normal(size=(half_batch, self.encoded_dim))
             valid = np.ones((half_batch, 1))
             fake = np.zeros((half_batch, 1))
             # Train the discriminator
