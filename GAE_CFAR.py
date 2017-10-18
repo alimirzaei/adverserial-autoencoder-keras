@@ -123,11 +123,11 @@ if __name__ == '__main__':
     ann = GAE(img_shape = x_train[0].shape, encoded_dim=10)
     ann.train(x_train, epochs=1)
     ann.generateAndPlot(x_train)
-    generated = ann.generate(10000)
-    L = helpers.approximateLogLiklihood(generated, x_test, searchSpace=[.1])
-    print L
+    #generated = ann.generate(10000)
+    #L = helpers.approximateLogLiklihood(generated, x_test, searchSpace=[.1])
+    #print L
     #codes = ann.kde.sample(1000)
     #ax = Axes3D(plt.gcf())
-    codes = ann.encoder.predict(x_train)
-    plt.scatter(codes[:,0], codes[:,1], c=y_train)
-    plt.show()
+    #codes = ann.encoder.predict(x_train)
+    #plt.scatter(codes[:,0], codes[:,1], c=y_train)
+    #plt.show()
