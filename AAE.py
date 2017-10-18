@@ -21,8 +21,8 @@ initializer = RandomNormal(mean=0.0, stddev=0.01, seed=None)
 class AAN():
     def __init__(self, img_shape=(28, 28), encoded_dim=2):
         self.encoded_dim = encoded_dim
-        self.optimizer_reconst = Adam(0.0001)
-        self.optimizer_discriminator = Adam(0.0001)
+        self.optimizer_reconst = Adam(0.01)
+        self.optimizer_discriminator = Adam(0.01)
         self._initAndCompileFullModel(img_shape, encoded_dim)
 
     def _genEncoderModel(self, img_shape, encoded_dim):

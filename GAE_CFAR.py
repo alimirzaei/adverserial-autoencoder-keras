@@ -7,7 +7,7 @@
 
 from keras.models import Sequential, Model
 from keras.layers import Dense, Input, Flatten, Reshape
-from keras.datasets import mnist
+from keras.datasets import mnist, cifar10
 from keras.optimizers import Adam
 import numpy as np
 import matplotlib.pyplot as plt
@@ -117,10 +117,10 @@ class GAE():
         KernelDensity(kernel='gaussian', bandwidth=0.2).fit(codes)
 if __name__ == '__main__':
     # Load MNIST dataset
-    (x_train, y_train), (x_test, y_test) = mnist.load_data()
+    (x_train, y_train), (x_test, y_test) = cifar10.load_data()
     x_train = x_train.astype(np.float32) / 255.
     x_test = x_test.astype(np.float32) / 255.
-    ann = GAE(img_shape=(28,28), encoded_dim=10)
+    ann = GAE(img_shape = x_train[0].shape, encoded_dim=10)
     ann.train(x_train, epochs=1)
     ann.generateAndPlot(x_train)
     generated = ann.generate(10000)
