@@ -15,11 +15,13 @@ from sklearn.neighbors.kde import KernelDensity
 from mpl_toolkits.mplot3d import Axes3D
 import helpers
 from sklearn.model_selection import GridSearchCV
+import keras
+
 
 class GAE():
     def __init__(self, img_shape=(28, 28), encoded_dim=2):
         self.encoded_dim = encoded_dim
-        self.optimizer = Adam(0.001)
+        self.optimizer = Adam(0.000001)
         self._initAndCompileFullModel(img_shape, encoded_dim)
         self.img_shape = img_shape
 
@@ -81,7 +83,13 @@ class GAE():
 
     def train(self, x_train, batch_size=32, epochs=5):
         self.autoencoder.fit(x_train, x_train, batch_size=batch_size,
-                             epochs=epochs)
+                             epochs=epochs, 
+                             callbacks=[keras.callbacks.ModelCheckpoint('weights.{epoch:02d}.hdf5', 
+                                                                       verbose=0, 
+                                                                       save_best_only=False, 
+                                                                       save_weights_only=False, 
+                                                                       mode='auto', 
+                                                                       period=1)])
         codes = self.encoder.predict(x_train)
 #        params = {'bandwidth': [3.16]}#np.logspace(0, 2, 5)}
 #        grid = GridSearchCV(KernelDensity(), params, n_jobs=4)
@@ -120,8 +128,9 @@ if __name__ == '__main__':
     (x_train, y_train), (x_test, y_test) = cifar10.load_data()
     x_train = x_train.astype(np.float32) / 255.
     x_test = x_test.astype(np.float32) / 255.
-    ann = GAE(img_shape = x_train[0].shape, encoded_dim=10)
-    ann.train(x_train, epochs=1)
+    ann = GAE(img_shape = x_train[0].shape, encoded_dim=15)
+    ann.autoencoder.load_weights('weights.03.hdf5')
+    ann.train(x_train, epochs=5)
     ann.generateAndPlot(x_train)
     #generated = ann.generate(10000)
     #L = helpers.approximateLogLiklihood(generated, x_test, searchSpace=[.1])
