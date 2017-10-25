@@ -96,7 +96,7 @@ class GAE():
 #        grid.fit(codes)
 #        print grid.best_params_
 #        self.kde = grid.best_estimator_
-        self.kde = KernelDensity(kernel='gaussian', bandwidth=3.16).fit(codes)
+        self.kde = KernelDensity(kernel='gaussian', bandwidth=.2).fit(codes)
 
     def generate(self, n = 10000):
         codes = self.kde.sample(n)
