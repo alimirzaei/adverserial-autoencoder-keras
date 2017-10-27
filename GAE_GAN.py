@@ -23,8 +23,8 @@ initializer = RandomNormal(mean=0.0, stddev=0.01, seed=None)
 class GAE():
     def __init__(self, img_shape=(28, 28), encoded_dim=2):
         self.encoded_dim = encoded_dim
-        self.optimizer = Adam(0.001)
-        self.optimizer_discriminator = Adam(0.00001)
+        self.optimizer = Adam(0.0001)
+        self.optimizer_discriminator = Adam(0.0001)
         self._initAndCompileFullModel(img_shape, encoded_dim)
         self.img_shape = img_shape
 
@@ -93,12 +93,10 @@ class GAE():
                                    metrics=['accuracy'])
         for layer in self.discriminator.layers:
             layer.trainable = False
-        
-        latent = Input(shape=(encoded_dim,))
-        gen_image_from_latent = self.decoder(latent)
-        is_real = self.discriminator(gen_image_from_latent)
-        self.decoder_discriminator = Model(latent, is_real)
-        self.decoder_discriminator.compile(optimizer=self.optimizer_discriminator, loss='binary_crossentropy',
+
+        is_real = self.discriminator(gen_img)
+        self.autoencoder_discriminator = Model(img, is_real)
+        self.autoencoder_discriminator.compile(optimizer=self.optimizer_discriminator, loss='binary_crossentropy',
                                            metrics=['accuracy'])
 
     def imagegrid(self, epochnumber):
@@ -117,59 +115,6 @@ class GAE():
         plt.close(fig)
 
     def train(self, x_train, batch_size=32, epochs=5):
-        fileNames = glob.glob('models/GAE/weights_mnist_autoencoder.*')
-        fileNames.sort()
-        if(len(fileNames) != 0):
-            savedEpoch = int(fileNames[-1].split('.')[1])
-            self.autoencoder.load_weights(fileNames[-1])
-        else:
-            savedEpoch=-1
-        if(savedEpoch<epochs-1):
-            self.autoencoder.fit(x_train, x_train, batch_size=batch_size,
-                                 epochs=epochs, 
-                                 callbacks=[keras.callbacks.ModelCheckpoint('models/GAE/weights_autoencoder.{epoch:02d}.hdf5', 
-                                                                           verbose=0, 
-                                                                           save_best_only=False, 
-                                                                           save_weights_only=False, 
-                                                                           mode='auto', 
-                                                                           period=1)])
-        print "Training KDE"
-        codes = self.encoder.predict(x_train)
-#        params = {'bandwidth': [3.16]}#np.logspace(0, 2, 5)}
-#        grid = GridSearchCV(KernelDensity(), params, n_jobs=4)
-#        grid.fit(codes)
-#        print grid.best_params_
-#        self.kde = grid.best_estimator_
-        self.kde = KernelDensity(kernel='gaussian', bandwidth=3.16).fit(codes)
-        print "Initial Training of discriminator"
-        fileNames = glob.glob('models/GAE/weights_mnist_discriminator.*')
-        fileNames.sort()
-        if(len(fileNames) != 0):
-            savedEpoch = int(fileNames[-1].split('.')[1])
-            self.discriminator.load_weights(fileNames[-1])
-        else:
-            savedEpoch = -1
-        if(savedEpoch<epochs-1):
-            imgs_fake = self.generate(n = len(x_train))
-            #gen_imgs = self.decoder.predict(latent_fake)
-            valid = np.ones((len(x_train), 1))
-            fake = np.zeros((len(x_train), 1))
-            labels = np.vstack([valid, fake])
-            images = np.vstack([x_train, imgs_fake])
-            # Train the discriminator
-            self.discriminator.fit(images, labels, epochs=epochs, batch_size=batch_size, shuffle=True, 
-                                   callbacks=[keras.callbacks.ModelCheckpoint('models/GAE/weights_discriminator.{epoch:02d}.hdf5', 
-                                                                               verbose=0, 
-                                                                               save_best_only=False, 
-                                                                               save_weights_only=False, 
-                                                                               mode='auto', 
-                                                                               period=1)])
-
-        print "Training GAN"
-        self.generateAndPlot(x_train, fileName="before_gan.png")
-        self.trainGAN(x_train, epochs=len(x_train)/batch_size, batch_size= batch_size)
-        self.generateAndPlot(x_train, fileName="after_gan.png")
-    def trainGAN(self, x_train, epochs =1000, batch_size=32):
         half_batch = batch_size/2
         for epoch in range(epochs):
             #---------------Train Discriminator -------------
@@ -177,8 +122,8 @@ class GAE():
             idx = np.random.randint(0, x_train.shape[0], half_batch)
             imgs_real = x_train[idx]
             # Generate a half batch of new images
-            imgs_fake = self.generate(n = half_batch)
             #gen_imgs = self.decoder.predict(latent_fake)
+            imgs_fake = self.autoencoder.predict(imgs_real)
             valid = np.ones((half_batch, 1))
             fake = np.zeros((half_batch, 1))
             # Train the discriminator
@@ -186,15 +131,24 @@ class GAE():
             d_loss_fake = self.discriminator.train_on_batch(imgs_fake, fake)
             d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
             #d_loss = (0,0)
-            codes = self.kde.sample(batch_size)
+            idx = np.random.randint(0, x_train.shape[0], batch_size)
+            imgs_real = x_train[idx]
             # Generator wants the discriminator to label the generated representations as valid
             valid_y = np.ones((batch_size, 1))
             # Train generator
-            g_logg_similarity = self.decoder_discriminator.train_on_batch(codes, valid_y)
+            g_logg_similarity = self.autoencoder_discriminator.train_on_batch(imgs_real, valid_y)
             # Plot the progress
-            print ("%d [D accuracy: %.2f] [G accuracy: %.2f]" % (epoch, d_loss[1], g_logg_similarity[1]))
+            print ("%d [D loss = %.2f, accuracy: %.2f] [G loss = %f, accuracy: %.2f]" % (epoch,d_loss[0], d_loss[1], g_logg_similarity[0], g_logg_similarity[1]))
 #            if(epoch % save_interval == 0):
 #                self.imagegrid(epoch)
+        codes = self.encoder.predict(x_train)
+#        params = {'bandwidth': [3.16]}#np.logspace(0, 2, 5)}
+#        grid = GridSearchCV(KernelDensity(), params, n_jobs=4)
+#        grid.fit(codes)
+#        print grid.best_params_
+#        self.kde = grid.best_estimator_
+        self.kde = KernelDensity(kernel='gaussian', bandwidth=3.16).fit(codes)
+
 
     def generate(self, n = 10000):
         codes = self.kde.sample(n)
@@ -227,7 +181,7 @@ if __name__ == '__main__':
     x_train = x_train.astype(np.float32) / 255.
     x_test = x_test.astype(np.float32) / 255.
     ann = GAE(img_shape=(28,28), encoded_dim=2)
-    ann.train(x_train, epochs=1)
+    ann.train(x_train, epochs=1000)
     ann.generateAndPlot(x_train)
 #    generated = ann.generate(10000)
 #    L = helpers.approximateLogLiklihood(generated, x_test, searchSpace=[.1])
