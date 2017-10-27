@@ -8,8 +8,10 @@ import glob
 from keras.models import Sequential, Model
 from keras.layers import Dense, Input, Flatten, Reshape
 from keras.datasets import mnist, cifar10
-from keras.optimizers import Adam
+from keras.optimizers import Adam, SGD
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from sklearn.neighbors.kde import KernelDensity
 from mpl_toolkits.mplot3d import Axes3D
@@ -23,8 +25,9 @@ initializer = RandomNormal(mean=0.0, stddev=0.01, seed=None)
 class GAE():
     def __init__(self, img_shape=(28, 28), encoded_dim=2):
         self.encoded_dim = encoded_dim
-        self.optimizer = Adam(0.0001)
-        self.optimizer_discriminator = Adam(0.0001)
+        self.optimizer = SGD(0.001, momentum=.9)
+        self.optimizer_discriminator = SGD(0.0001, momentum=.9)
+        self.optimizer_autoencoder = Adam(0.0001)
         self._initAndCompileFullModel(img_shape, encoded_dim)
         self.img_shape = img_shape
 
@@ -87,8 +90,8 @@ class GAE():
         encoded_repr = self.encoder(img)
         gen_img = self.decoder(encoded_repr)
         self.autoencoder = Model(img, gen_img)
-        self.autoencoder.compile(optimizer=self.optimizer, loss='mse')
-        self.discriminator.compile(optimizer=self.optimizer, 
+        self.autoencoder.compile(optimizer=self.optimizer_autoencoder, loss='mse')
+        self.discriminator.compile(optimizer=self.optimizer_discriminator, 
                                    loss='binary_crossentropy',
                                    metrics=['accuracy'])
         for layer in self.discriminator.layers:
@@ -96,7 +99,7 @@ class GAE():
 
         is_real = self.discriminator(gen_img)
         self.autoencoder_discriminator = Model(img, is_real)
-        self.autoencoder_discriminator.compile(optimizer=self.optimizer_discriminator, loss='binary_crossentropy',
+        self.autoencoder_discriminator.compile(optimizer=self.optimizer, loss='binary_crossentropy',
                                            metrics=['accuracy'])
 
     def imagegrid(self, epochnumber):
@@ -115,17 +118,19 @@ class GAE():
         plt.close(fig)
 
     def train(self, x_train, batch_size=32, epochs=5):
-        half_batch = batch_size/2
+        self.autoencoder.fit(x_train, x_train, epochs=1)
         for epoch in range(epochs):
             #---------------Train Discriminator -------------
             # Select a random half batch of images
-            idx = np.random.randint(0, x_train.shape[0], half_batch)
+            idx = np.random.randint(0, x_train.shape[0], batch_size)
             imgs_real = x_train[idx]
+            idx = np.random.randint(0, x_train.shape[0], batch_size)
+            imgs_real2 = x_train[idx]
             # Generate a half batch of new images
             #gen_imgs = self.decoder.predict(latent_fake)
-            imgs_fake = self.autoencoder.predict(imgs_real)
-            valid = np.ones((half_batch, 1))
-            fake = np.zeros((half_batch, 1))
+            imgs_fake = self.autoencoder.predict(imgs_real2)
+            valid = np.ones((batch_size, 1))
+            fake = np.zeros((batch_size, 1))
             # Train the discriminator
             d_loss_real = self.discriminator.train_on_batch(imgs_real, valid)
             d_loss_fake = self.discriminator.train_on_batch(imgs_fake, fake)
