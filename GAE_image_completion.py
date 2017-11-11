@@ -6,7 +6,7 @@
 
 import glob
 from keras.models import Sequential, Model
-from keras.layers import Dense, Input, Flatten, Reshape
+from keras.layers import Dense, Input, Flatten, Reshape, Lambda
 from keras.datasets import mnist, cifar10
 from keras.optimizers import Adam
 import numpy as np
@@ -17,8 +17,20 @@ import helpers
 from sklearn.model_selection import GridSearchCV
 import keras
 from keras.initializers import RandomNormal
+import keras.backend as K
 
 initializer = RandomNormal(mean=0.0, stddev=0.01, seed=None)
+
+def selector(args):
+    xs, ys, image = args
+    xs = K.cast(xs, K.tf.int32)
+    ys = K.cast(ys, K.tf.int32)
+    image = Reshape((28,28))(image)
+#    x = xy_s[0:100]
+#    y = xy_s[100:200]
+    img = K.zeros((28,28))
+    #tt=image[xs[0,:],ys[0,:]]
+    return image
 
 class GAE():
     def __init__(self, img_shape=(28, 28), encoded_dim=2):
@@ -60,24 +72,29 @@ class GAE():
         decoder.summary()
         return decoder
 
-    def _getDescriminator(self, img_shape):
+    def _getLocationNetwork(self, img_shape):
         """ Build Descriminator Model Based on Paper Configuration
         Args:
             encoded_dim (int) : number of latent variables
         Return:
             A sequential keras model
         """
-        discriminator = Sequential()
-        discriminator.add(Flatten(input_shape=img_shape))
-        discriminator.add(Dense(1000, activation='relu',
+        locationNetwork = Sequential()
+        locationNetwork.add(Flatten(input_shape=img_shape))
+        locationNetwork.add(Dense(1000, activation='relu',
                                 kernel_initializer=initializer,
                 bias_initializer=initializer))
-        discriminator.add(Dense(1000, activation='relu', kernel_initializer=initializer,
+        locationNetwork.add(Dense(1000, activation='relu', kernel_initializer=initializer,
                 bias_initializer=initializer))
-        discriminator.add(Dense(1, activation='sigmoid', kernel_initializer=initializer,
+        locationNetwork.add(Dense(100, activation='sigmoid', kernel_initializer=initializer,
                 bias_initializer=initializer))
-        discriminator.summary()
-        return discriminator
+        locationNetwork.summary()
+        img = Input(shape=img_shape)
+        xs = locationNetwork(img)
+        ys = locationNetwork(img)
+        #img_xys = K.concatenate([xys, Flatten()(img)])
+        out = Lambda(selector,output_shape=img_shape)([xs, ys,img])
+        return Model(img,out)
 
     def _initAndCompileFullModel(self, img_shape, encoded_dim):
         self.encoder = self._genEncoderModel(img_shape, encoded_dim)
@@ -87,6 +104,8 @@ class GAE():
         gen_img = self.decoder(encoded_repr)
         self.autoencoder = Model(img, gen_img)
         self.autoencoder.compile(optimizer=self.optimizer, loss='mse')
+        self.locator = self._getLocationNetwork(img_shape)
+        self.locator.compile(optimizer=self.optimizer, loss='mse')
 
     def imagegrid(self, epochnumber):
         fig = plt.figure(figsize=[20, 20])
@@ -104,7 +123,7 @@ class GAE():
         plt.close(fig)
 
     def train(self, x_in, x_out, batch_size=32, epochs=5):
-        #self.autoencoder.load_weights('weights.00.hdf5')
+        self.autoencoder.load_weights('weights.04.hdf5')
         self.autoencoder.fit(x_in, x_out, epochs=epochs, batch_size=batch_size,
                               callbacks=[keras.callbacks.ModelCheckpoint('weights.{epoch:02d}.hdf5', 
                                            verbose=0, 
@@ -191,7 +210,8 @@ if __name__ == '__main__':
         x_in.append(x)
     x_in = np.array(x_in)
     ann = GAE(img_shape=(28,28), encoded_dim=8)
-    ann.train(x_in,x_out, epochs=5)
+    #ann.train(x_in,x_out, epochs=0)
+    ann.locator.fit(x_train, x_train)
     ann.generateAndPlot(x_test,50)
 #    ann.generateAndPlot(x_train)
 #    generated = ann.generate(10000)
