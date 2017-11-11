@@ -104,8 +104,8 @@ class GAE():
         gen_img = self.decoder(encoded_repr)
         self.autoencoder = Model(img, gen_img)
         self.autoencoder.compile(optimizer=self.optimizer, loss='mse')
-        self.locator = self._getLocationNetwork(img_shape)
-        self.locator.compile(optimizer=self.optimizer, loss='mse')
+        #self.locator = self._getLocationNetwork(img_shape)
+        #self.locator.compile(optimizer=self.optimizer, loss='mse')
 
     def imagegrid(self, epochnumber):
         fig = plt.figure(figsize=[20, 20])
@@ -195,6 +195,36 @@ class GAE():
 
     def meanLogLikelihood(self, x_test):
         KernelDensity(kernel='gaussian', bandwidth=0.2).fit(codes)
+
+def plotResults(ann, x_test, key_numbers = 10):
+    fig = plt.figure(figsize=(10, 10*len(x_test)/4))
+    for index, x in enumerate(x_test):
+        errors = []
+        for pixel in range(28*28):
+            partial_x = np.zeros(x.shape)
+            partial_x[pixel/28, pixel%28] = x[pixel/28, pixel%28]
+            y = ann.autoencoder.predict(partial_x.reshape(1,28,28))
+            error = np.sum(np.abs(y-x))
+            errors.append(error)
+        pixels = np.argsort(errors)
+        selected_pixels = pixels[0:key_numbers]
+        partial_x = np.zeros(x.shape)
+        mask = np.zeros(x.shape)
+        for pixel in selected_pixels:
+            partial_x[pixel/28, pixel%28] = x[pixel/28, pixel%28]
+            mask[pixel/28, pixel%28] = 1
+        y = ann.autoencoder.predict(partial_x.reshape(1,28,28))
+        ax = fig.add_subplot(len(x_test),4,index*4+1)
+        ax.imshow(x)
+        ax = fig.add_subplot(len(x_test),4,index*4+2)
+        ax.imshow(mask)
+        ax = fig.add_subplot(len(x_test),4,index*4+3)
+        ax.imshow(partial_x)
+        ax = fig.add_subplot(len(x_test),4,index*4+4)
+        ax.imshow(y[0])
+        plt.show()
+    fig.savefig(str(key_numbers)+'.jpg')
+
 import copy
 if __name__ == '__main__':
     # Load MNIST dataset
@@ -210,9 +240,17 @@ if __name__ == '__main__':
         x_in.append(x)
     x_in = np.array(x_in)
     ann = GAE(img_shape=(28,28), encoded_dim=8)
-    #ann.train(x_in,x_out, epochs=0)
-    ann.locator.fit(x_train, x_train)
-    ann.generateAndPlot(x_test,50)
+    ann.train(x_in,x_out, epochs=0)
+    plotResults(ann, x_test[0:10], key_numbers=1)
+    plotResults(ann, x_test[0:10], key_numbers=5)
+    plotResults(ann, x_test[0:10], key_numbers=10)
+    plotResults(ann, x_test[0:10], key_numbers=25)
+    plotResults(ann, x_test[0:10], key_numbers=50)
+    plotResults(ann, x_test[0:10], key_numbers=100)
+    plotResults(ann, x_test[0:10], key_numbers=400)
+
+
+    #ann.generateAndPlot(x_test,50)
 #    ann.generateAndPlot(x_train)
 #    generated = ann.generate(10000)
 #    L = helpers.approximateLogLiklihood(generated, x_test, searchSpace=[.1])

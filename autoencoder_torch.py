@@ -13,7 +13,10 @@ train_loader = torch.utils.data.DataLoader(
                    transform= transforms.ToTensor()),
     batch_size=32, shuffle=True, **kwargs)
 
-class GAE(nn.Module):
+class AE(nn.Module):
+    """Autoencoder
+    autoencoder to generate image   
+    """
     def __init__(self, input_shape=(28, 28), latent_dim=2):
         super(GAE, self).__init__()
         self.input_shape = input_shape
@@ -57,9 +60,9 @@ class GAE(nn.Module):
 class KeyPointNetwork(nn.Module):
     def __init__(self, input_shape=(28, 28)):
         super(KeyPointNetwork, self).__init__()
-        self.fc1 = nn.Linear(np.prod(input_shape), 1000)
-        self.fc2 = nn.Linear(1000, 1000)
-        self.fc3 = nn.Linear(1000, 100)
+        self.fc1 = nn.Linear(np.prod(input_shape), 100)
+        self.fc2 = nn.Linear(100, 100)
+        self.fc3 = nn.Linear(100, 100)
         self.input_shape = input_shape
     def forward(self, x):
         x = x.view(-1, 1, np.prod(self.input_shape))
@@ -73,20 +76,24 @@ class ImageCompletion(nn.Module):
         super(ImageCompletion, self).__init__()
         self.gae = GAE(input_shape=input_shape)
         self.gae = torch.load(generatorModel)
-        for p in self.gae.parameters():
-            p.require_grad=False
+        # for p in self.gae.parameters():
+        #     p.require_grad=False
         self.kpn = KeyPointNetwork(input_shape=input_shape)
         self.input_shape = input_shape
     def forward(self, x):
         keys = self.kpn(x)
         in_images = torch.zeros(x.size())
-        for i in range(32):
+        for i in range(x.size()[0]):
             im = x[i, :, :]
             for key in keys[i,0].data.numpy():
                 key = int(key)
-                a = in_images[i,key/28, key%28]
-                b=im[key/28, key%28].data
-#            sel_key  = keys.view(32, 1, 2, -1)[i, 0, :, :]
+                a=in_images[i,key%28, key/28]
+                b=im[key%28, key/28].data
+                a=b
+                #plt.imshow(in_images[i,:,:].numpy())
+                #a=1
+                
+                #            sel_key  = keys.view(32, 1, 2, -1)[i, 0, :, :]
 #            sel_key = sel_key.type(torch.LongTensor)
 #            sel_image = in_images[i, 0, :, :]
 #            sel_image[sel_key.data.numpy()] = im.data.index(sel_key.data.numpy())
@@ -103,18 +110,20 @@ class ImageCompletion(nn.Module):
             mask = self.kpn.forward(Variable(torch.from_numpy(x.reshape((1,1)+self.input_shape))))
             mm = np.zeros(self.input_shape)
             for element in mask[0,0].data.numpy():
-                mm[int(element/self.input_shape[0]),int(element%self.input_shape[0])]=1
-            ax = fig.add_subplot(n, 4, i*3+1)
+                xx=int(element%self.input_shape[0])
+                yy=int(element/self.input_shape[0])
+                mm[xx,yy]=x[xx,yy]
+            ax = fig.add_subplot(n, 4, i*4+1)
             ax.set_axis_off()
             ax.imshow(x)
-            ax = fig.add_subplot(n, 4, i*3+2)
+            ax = fig.add_subplot(n, 4, i*4+2)
             ax.set_axis_off()
             ax.imshow(mm)
-            y = self.forward(Variable(torch.from_numpy(x.reshape((1,1)+self.input_shape))))
-            ax = fig.add_subplot(n, 4, i*3+3)
+            y = self.gae.forward(Variable(torch.from_numpy(mm.reshape((1,1)+self.input_shape))))
+            ax = fig.add_subplot(n, 4, i*4+3)
             ax.set_axis_off()
             ax.imshow(y[0,0].data.numpy())
-            ax = fig.add_subplot(n, 4, i*3+4)
+            ax = fig.add_subplot(n, 4, i*4+4)
             ax.set_axis_off()
             ax.imshow(x_in)
         fig.savefig(fileName)
@@ -164,11 +173,11 @@ def trainKeyPoint():
     x_test = x_test.astype(np.float32) / 255.
 
     model = ImageCompletion()
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = optim.SGD(model.parameters(), lr=1e-3)
     loss = nn.MSELoss()
     model.train()
     batch_size = 32
-    epochs = 10
+    epochs = 100
     model = torch.load('keypoint.model')
     for epoch in range(epochs):
         idx = np.random.randint(0, x_train.shape[0], batch_size)
